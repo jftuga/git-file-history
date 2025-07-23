@@ -55,17 +55,17 @@ def get_single_keypress() -> str:
             key = sys.stdin.read(1)
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        return key.lower()
+        return key
     except ImportError:
         # Fallback for Windows
         try:
             import msvcrt
             key = msvcrt.getch().decode('utf-8')
-            return key.lower()
+            return key
         except ImportError:
             # Ultimate fallback - requires Enter
             print("(Press Enter after your choice)")
-            return input().lower()
+            return input()
 
 
 class DeltaVersionComparer:
@@ -178,42 +178,48 @@ class DeltaVersionComparer:
             sys.exit(1)
 
         print(f"Found {len(files_to_compare)} files to compare")
-        print("Controls: 'n' for next, 'p' for previous, 'q' to quit")
+        print("Controls: 'n' for next, 'p' for previous, 'g' for beginning, 'G' for end, 'q' to quit")
         print()
 
         current_index = 0
+        max_index = len(files_to_compare) - 2  # Last valid comparison index
 
         while True:
-            if current_index >= len(files_to_compare) - 1:
+            if current_index > max_index:
                 print("\nReached the end of file history.")
                 break
 
             file1 = files_to_compare[current_index]
             file2 = files_to_compare[current_index + 1]
 
-            print(f"Comparing: {file1.name} → {file2.name}")
+            print(f"Comparing: {file1.name} -> {file2.name}")
 
             if self.clear_screen_enabled:
-                print("Running delta...")
                 clear_screen()
-            else:
-                print("Running delta...")
 
             if not self._run_delta(file1, file2):
                 print("Failed to run delta comparison")
                 break
 
             # Prepare prompt based on current position
-            position_info = f"({current_index + 1}/{len(files_to_compare) - 1})"
+            position_info = f"({current_index + 1}/{max_index + 1})"
 
-            if current_index == 0:
+            if current_index == 0 and current_index == max_index:
+                # Only one comparison available
+                prompt = f"\nPress 'q' to quit {position_info}: "
+                valid_keys = {'q'}
+            elif current_index == 0:
                 # First comparison - no previous option
-                prompt = f"\nPress 'n' for next comparison {position_info} or 'q' to quit: "
-                valid_keys = {'n', 'q'}
+                prompt = f"\nPress 'n' for next, 'G' for end {position_info}, or 'q' to quit: "
+                valid_keys = {'n', 'G', 'q'}
+            elif current_index == max_index:
+                # Last comparison - no next option
+                prompt = f"\nPress 'p' for previous, 'g' for beginning {position_info}, or 'q' to quit: "
+                valid_keys = {'p', 'g', 'q'}
             else:
-                # Subsequent comparisons - include previous option
-                prompt = f"\nPress 'n' for next, 'p' for previous {position_info}, or 'q' to quit: "
-                valid_keys = {'n', 'p', 'q'}
+                # Middle comparisons - all options available
+                prompt = f"\nPress 'n' for next, 'p' for previous, 'g' for beginning, 'G' for end {position_info}, or 'q' to quit: "
+                valid_keys = {'n', 'p', 'g', 'G', 'q'}
 
             print(prompt, end="", flush=True)
 
@@ -223,20 +229,43 @@ class DeltaVersionComparer:
             if key == 'q':
                 print("Exiting...")
                 break
-            elif key == 'n':
+            elif key == 'n' and current_index < max_index:
                 current_index += 1
                 print()
             elif key == 'p' and current_index > 0:
                 current_index -= 1
                 print()
-            else:
-                if key not in valid_keys:
-                    if current_index == 0:
-                        print("Invalid input. Use 'n' for next or 'q' to quit.")
-                    else:
-                        print("Invalid input. Use 'n' for next, 'p' for previous, or 'q' to quit.")
+            elif key == 'g':
+                if current_index != 0:
+                    current_index = 0
+                    print("Jumped to beginning")
+                    print()
                 else:
-                    print("Cannot go to previous from the first comparison.")
+                    print("Already at the beginning.")
+            elif key == 'G':
+                if current_index != max_index:
+                    current_index = max_index
+                    print("Jumped to end")
+                    print()
+                else:
+                    print("Already at the end.")
+            else:
+                # Invalid input handling
+                if key not in valid_keys:
+                    if current_index == 0 and current_index == max_index:
+                        print("Invalid input. Use 'q' to quit.")
+                    elif current_index == 0:
+                        print("Invalid input. Use 'n' for next, 'G' for end, or 'q' to quit.")
+                    elif current_index == max_index:
+                        print("Invalid input. Use 'p' for previous, 'g' for beginning, or 'q' to quit.")
+                    else:
+                        print("Invalid input. Use 'n' for next, 'p' for previous, 'g' for beginning, 'G' for end, or 'q' to quit.")
+                else:
+                    # Handle boundary cases
+                    if key == 'n':
+                        print("Cannot go to next from the last comparison.")
+                    elif key == 'p':
+                        print("Cannot go to previous from the first comparison.")
 
 
 def main() -> None:
@@ -257,7 +286,7 @@ def main() -> None:
     )
 
     parser.add_argument(
-        "--no-current",
+        "-n", "--no-current",
         action="store_true",
         help="Don't include the current working file in comparison"
     )

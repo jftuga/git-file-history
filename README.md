@@ -11,8 +11,9 @@ This project consists of two complementary scripts:
 
 - **`git-version-extractor.py`** - Extracts different versions of a file from git history, saving each version with timestamp-based filenames
 - **`delta-compare.py`** - Provides interactive comparison of file versions using the delta diff tool
+- **`space-cleaner.py`** - Removes trailing whitespace from source code files while automatically backing up original to `/tmp`
 
-Both tools work together to provide a complete workflow for analyzing file evolution in git repositories.
+These tools work together to provide a complete workflow for analyzing file evolution in git repositories.
 
 ## Requirements
 
@@ -72,11 +73,13 @@ python delta-compare.py [OPTIONS] FILENAME
 
 **Options:**
 - `-c, --clear` - Clear screen before each delta comparison
-- `--no-current` - Don't include current working file in comparison
+- `-n, --no-current` - Don't include current working file in comparison
 
 **Interactive Controls:**
 - `n` - Next comparison (toward older versions)
 - `p` - Previous comparison (toward newer versions)
+- `g` - Jump to beginning (first comparison)
+- `G` - Jump to end (last comparison)
 - `q` - Quit
 
 ## Examples
@@ -141,19 +144,29 @@ python delta-compare.py popup.html
 Interactive session:
 ```
 Found 4 files to compare
-Controls: 'n' for next, 'p' for previous, 'q' to quit
+Controls: 'n' for next, 'p' for previous, 'g' for beginning, 'G' for end, 'q' to quit
 
 Comparing: popup.html -> popup-20250722.010203.html
-Running delta...
 [delta diff output appears here]
 
 Press 'n' for next comparison (1/3) or 'q' to quit: n
 
 Comparing: popup-20250722.010203.html -> popup-20250721.143022.html
-Running delta...
 [delta diff output appears here]
 
-Press 'n' for next, 'p' for previous (2/3), or 'q' to quit: p
+Press 'n' for next, 'p' for previous, 'g' for beginning, 'G' for end (2/3), or 'q' to quit: G
+
+Jumped to end
+
+Comparing: popup-20250720.091503.html -> popup-20250719.165432.html
+[delta diff output appears here]
+
+Press 'p' for previous, 'g' for beginning (3/3), or 'q' to quit: g
+
+Jumped to beginning
+
+Comparing: popup.html -> popup-20250722.010203.html
+[delta diff output appears here]
 ```
 
 ### Clean Screen Comparisons
@@ -169,7 +182,7 @@ python delta-compare.py -c src/lambda/index.py
 Exclude current working file from comparison:
 
 ```bash
-python delta-compare.py --no-current config.yml
+python delta-compare.py -n config.yml
 ```
 
 ## Typical Workflow
@@ -184,7 +197,7 @@ python delta-compare.py --no-current config.yml
    python delta-compare.py -c src/app.py
    ```
 
-3. Navigate through the history using `n` (next) and `p` (previous) to understand how the file evolved over time.
+3. Navigate through the history using `n` (next) and `p` (previous) to understand how the file evolved over time. Use `g` and `G` to quickly jump to the beginning or end of the file history.
 
 ## File Naming Convention
 
@@ -195,5 +208,11 @@ Examples:
 - `main.py` -> `main-20250715.091503.py`
 - `config.json` -> `config-20250708.165432.json`
 
-The timestamp represents the commit date/time in the commit's original timezone.
+The timestamp represents the commit date/time in the commit's
+original timezone.
 
+## Disclosure Notification
+
+This program is my own original idea and was completely developed
+on my own personal time, for my own personal benefit, and on my
+personally owned equipment.

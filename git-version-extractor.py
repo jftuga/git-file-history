@@ -6,6 +6,7 @@
 # and provides options to filter by date or limit the number of versions extracted.
 
 import argparse
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -127,6 +128,28 @@ class GitFileExtractor:
             # Fallback: use current timestamp if parsing fails
             return datetime.now().strftime("%Y%m%d.%H%M%S")
 
+    def _parse_commit_timestamp(self, commit_date: str) -> float:
+        """
+        Parse git commit date to Unix timestamp using naive local time interpretation.
+
+        This ignores the timezone information in the git commit date and interprets
+        the date/time portion as local time, matching what appears in the filename.
+
+        Args:
+            commit_date: Git commit date string in format "YYYY-MM-DD HH:MM:SS +HHMM"
+
+        Returns:
+            Unix timestamp as float
+        """
+        try:
+            # Remove timezone info and parse as naive datetime
+            date_part = commit_date.rsplit(' ', 1)[0]
+            dt = datetime.strptime(date_part, "%Y-%m-%d %H:%M:%S")
+            return dt.timestamp()
+        except ValueError:
+            # Fallback: use current timestamp if parsing fails
+            return datetime.now().timestamp()
+
     def _get_file_content_at_commit(self, filepath: str, commit_hash: str) -> str:
         """
         Get file content at a specific commit.
@@ -203,6 +226,10 @@ class GitFileExtractor:
 
                 # Write file content
                 output_path.write_text(content, encoding='utf-8')
+
+                # Update file mtime to match commit timestamp (using naive local time interpretation)
+                commit_timestamp = self._parse_commit_timestamp(commit_date)
+                os.utime(output_path, (commit_timestamp, commit_timestamp))
 
                 print(f"Extracted: {output_path} (commit: {commit_hash[:8]})")
                 extracted_count += 1

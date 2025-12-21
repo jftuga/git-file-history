@@ -277,8 +277,10 @@ def main() -> None:
     )
 
     parser.add_argument(
-        "filepath",
-        help="Path to the file in the git repository"
+        "filepaths",
+        nargs="+",
+        metavar="filepath",
+        help="Path(s) to the file(s) in the git repository"
     )
 
     parser.add_argument(
@@ -303,13 +305,20 @@ def main() -> None:
 
     try:
         extractor = GitFileExtractor(verbose=args.verbose)
-        count = extractor.extract_versions(
-            args.filepath,
-            after_date=args.after_date,
-            max_versions=args.max_versions
-        )
+        results: list[tuple[str, int]] = []
 
-        print(f"\nSuccessfully extracted {count} versions of '{args.filepath}'")
+        for filepath in args.filepaths:
+            count = extractor.extract_versions(
+                filepath,
+                after_date=args.after_date,
+                max_versions=args.max_versions
+            )
+            results.append((filepath, count))
+
+        print()
+        for filepath, count in results:
+            if count:
+                print(f"Successfully extracted {count} versions of '{filepath}'")
 
     except (RuntimeError, FileNotFoundError) as e:
         print(f"Error: {e}", file=sys.stderr)

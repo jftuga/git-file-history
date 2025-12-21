@@ -163,6 +163,27 @@ class GitFileExtractor:
         """
         return self._run_git_command(["show", f"{commit_hash}:{filepath}"])
 
+    def _files_are_identical(self, file1: Path, file2: Path) -> bool:
+        """
+        Compare two files using git diff to determine if they are identical.
+
+        Args:
+            file1: Path to the first file
+            file2: Path to the second file
+
+        Returns:
+            True if files are identical, False otherwise
+        """
+        command = ["git", "diff", "--no-index", "--quiet", str(file1), str(file2)]
+
+        if self.verbose:
+            print()
+            print(f"Running: {' '.join(command)}")
+
+        result = subprocess.run(command, capture_output=True)
+        # Exit code 0 means identical, 1 means different
+        return result.returncode == 0
+
     def _generate_output_filename(self, filepath: str, timestamp: str) -> Path:
         """
         Generate output filename with timestamp.
@@ -209,6 +230,7 @@ class GitFileExtractor:
 
         extracted_count = 0
         previous_content = None
+        current_file_path = Path(filepath)
 
         for commit_hash, commit_date in commits:
             try:
@@ -231,8 +253,14 @@ class GitFileExtractor:
                 commit_timestamp = self._parse_commit_timestamp(commit_date)
                 os.utime(output_path, (commit_timestamp, commit_timestamp))
 
-                print(f"Extracted: {output_path} (commit: {commit_hash[:8]})")
-                extracted_count += 1
+                # Compare against current working directory version
+                if self._files_are_identical(output_path, current_file_path):
+                    print(f"Skipped: {output_path} (commit {commit_hash[:8]} identical to current)")
+                    output_path.unlink()
+                else:
+                    print(f"Extracted: {output_path} (commit: {commit_hash[:8]})")
+                    extracted_count += 1
+
                 previous_content = content
 
             except RuntimeError as e:

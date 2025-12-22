@@ -293,7 +293,8 @@ def main() -> None:
     filter_group = parser.add_mutually_exclusive_group()
     filter_group.add_argument(
         "--after-date",
-        help="Extract versions after this date (YYYY-MM-DD format)"
+        metavar="YYYY-MM-DD",
+        help="Extract versions after this date"
     )
     filter_group.add_argument(
         "--max-versions",

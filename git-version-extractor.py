@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
 # Git File Version Extractor
-# This script traverses a git repository to extract different versions of a specified file
-# throughout its commit history. It saves each version with a timestamp-based filename
-# and provides options to filter by date or limit the number of versions extracted.
+# This script traverses a git repository to extract different versions of one or more
+# specified files throughout their commit history. Each extracted version is saved with
+# a timestamp-based filename (YYYYmmdd.HHMMSS) and has its modification time set to
+# match the original commit timestamp. The script provides mutually exclusive options
+# to filter by date or limit the number of versions extracted. Versions identical to
+# the current working directory file or to the previously extracted version are skipped.
 
 import argparse
 import os
@@ -15,7 +18,13 @@ from typing import Optional
 
 
 class GitFileExtractor:
-    """Extracts different versions of a file from git history."""
+    """
+    Extracts different versions of a file from git history.
+
+    This class provides functionality to traverse git commit history and extract
+    historical versions of files. Each extracted version is named with a timestamp
+    suffix and has its filesystem modification time set to match the commit time.
+    """
 
     def __init__(self, repo_path: Path = Path.cwd(), verbose: bool = False):
         """
@@ -82,6 +91,9 @@ class GitFileExtractor:
 
         Returns:
             List of tuples containing (commit_hash, commit_date)
+
+        Raises:
+            FileNotFoundError: If the file is not found in git history
         """
         command = ["log", "--pretty=format:%H|%ci"]
 
@@ -113,7 +125,7 @@ class GitFileExtractor:
         Format commit date to YYYYmmdd.HHMMSS format.
 
         Args:
-            commit_date: Git commit date string
+            commit_date: Git commit date string in format "YYYY-MM-DD HH:MM:SS +HHMM"
 
         Returns:
             Formatted timestamp string
@@ -160,6 +172,9 @@ class GitFileExtractor:
 
         Returns:
             File content as string
+
+        Raises:
+            RuntimeError: If the git command to retrieve file content fails
         """
         return self._run_git_command(["show", f"{commit_hash}:{filepath}"])
 
@@ -202,10 +217,14 @@ class GitFileExtractor:
         new_filename = f"{stem}-{timestamp}{suffix}"
         return original_path.parent / new_filename
 
-    def extract_versions(self, filepath: str, after_date: Optional[str] = None,
-                        max_versions: Optional[int] = None) -> int:
+    def extract_versions(self, filepath: str, after_date: Optional[str] = None, max_versions: Optional[int] = None) -> int:
         """
         Extract different versions of a file from git history.
+
+        Retrieves historical versions of the specified file, saves each with a
+        timestamp-based filename, and sets the file modification time to match the
+        commit timestamp. Skips versions that are identical to the current working
+        directory version or to the previously extracted version.
 
         Args:
             filepath: Path to the file in the repository
@@ -214,6 +233,9 @@ class GitFileExtractor:
 
         Returns:
             Number of versions extracted
+
+        Raises:
+            RuntimeError: If the current directory is not a git repository
         """
         if not self._is_git_repository():
             raise RuntimeError("Current directory is not a git repository")
@@ -270,8 +292,13 @@ class GitFileExtractor:
         return extracted_count
 
 
-def main() -> None:
-    """Main function to handle CLI arguments and execute file extraction."""
+def main():
+    """
+    Main function to handle CLI arguments and execute file extraction.
+
+    Parses command-line arguments, creates a GitFileExtractor instance, and
+    extracts historical versions for each specified file path.
+    """
     parser = argparse.ArgumentParser(
         description="Extract different versions of a file from git history"
     )
@@ -291,17 +318,8 @@ def main() -> None:
 
     # Mutually exclusive group for filtering options
     filter_group = parser.add_mutually_exclusive_group()
-    filter_group.add_argument(
-        "--after-date",
-        metavar="YYYY-MM-DD",
-        help="Extract versions after this date"
-    )
-    filter_group.add_argument(
-        "--max-versions",
-        type=int,
-        help="Maximum number of versions to extract (most recent first)"
-    )
-
+    filter_group.add_argument("--after-date", metavar="YYYY-MM-DD", help="Extract versions after this date")
+    filter_group.add_argument("--max-versions", type=int, help="Maximum number of versions to extract (most recent first)")
     args = parser.parse_args()
 
     try:
@@ -320,7 +338,6 @@ def main() -> None:
         for filepath, count in results:
             if count:
                 print(f"Successfully extracted {count} versions of '{filepath}'")
-
     except (RuntimeError, FileNotFoundError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
